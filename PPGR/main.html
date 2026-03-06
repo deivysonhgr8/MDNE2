@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | Classificação de Periódicos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .table-row-hover:hover { background-color: #f9fafb; transition: all 0.2s; }
+    </style>
+</head>
+<body class="p-6">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <header class="bg-white rounded-xl shadow-sm p-6 flex justify-between items-center border-l-4 border-blue-600">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">Destaques de Publicações - Pós-Graduação</h1>
+                <p class="text-sm text-gray-500 mt-1">Visão exploratória das classificações dos periódicos (CAPES, ABDC, JCR, etc.)</p>
+            </div>
+            <div class="text-right">
+                <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full">Atualizado Automaticamente</span>
+            </div>
+        </header>
+
+        <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg shadow-sm">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-red-800">Atenção Requerida (Controle de Qualidade)</h3>
+                    <p class="text-sm text-red-700 mt-1">
+                        O script identificou que alguns periódicos não constam na base de dados do site referenciado. Eles estão marcados como "Não Encontrado" para revisão manual.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Total em Exibição</h2>
+                <p class="text-3xl font-bold text-gray-800 mt-2" id="kpi-total">0</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Extraídos com Sucesso</h2>
+                <p class="text-3xl font-bold text-green-600 mt-2" id="kpi-sucesso">0</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Não Encontrados</h2>
+                <p class="text-3xl font-bold text-red-600 mt-2" id="kpi-falha">0</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h3 class="text-lg font-semibold text-gray-700 mb-4">Distribuição do Conceito CAPES</h3>
+                <div class="relative h-64 w-full">
+                    <canvas id="capesChart"></canvas>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h3 class="text-lg font-semibold text-gray-700 mb-4">Taxa de Localização na Base Web</h3>
+                <div class="relative h-64 w-full">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
+                <h3 class="text-lg font-semibold text-gray-700">Explorador de Dados</h3>
+                <div class="flex gap-4 w-full md:w-auto">
+                    <input type="text" id="searchInput" placeholder="Buscar por nome ou ISSN..." class="px-4 py-2 border rounded-lg text-sm w-full md:w-64 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select id="statusFilter" class="px-4 py-2 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="all">Todos os Status</option>
+                        <option value="encontrado">Encontrados</option>
+                        <option value="nao_encontrado">Não Encontrados</option>
+                    </select>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-50 text-gray-600 text-xs uppercase tracking-wider">
+                            <th class="p-4 font-semibold border-b">Periódico</th>
+                            <th class="p-4 font-semibold border-b">ISSN</th>
+                            <th class="p-4 font-semibold border-b">CAPES</th>
+                            <th class="p-4 font-semibold border-b">ABDC</th>
+                            <th class="p-4 font-semibold border-b">JCR</th>
+                            <th class="p-4 font-semibold border-b">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="text-sm text-gray-700">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Banco de dados completo extraído automaticamente do seu arquivo DESTAQUES.csv
+        const data = [
+            { "nome": "ORGANIZATION (LONDON)", "issn": "1350-5084", "capes": "MB – Muito Bom", "abdc": "A", "jcr": "Q2", "status": "Encontrado" },
+            { "nome": "BASE - REVISTA DE ADMINISTRAÇÃO E CONTABILIDADE DA UNISINOS", "issn": "1984-8196", "capes": "F – Fraco", "abdc": "-", "jcr": "-", "status": "Encontrado" },
+            { "nome": "SUPPLY CHAIN MANAGEMENT", "issn": "1359-8546", "capes": "MB – Muito Bom", "abdc": "A", "jcr": "Q1", "status": "Encontrado" },
+            { "nome": "RAC. REVISTA DE ADMINISTRAÇÃO CONTEMPORÂNEA (ONLINE)", "issn": "1982-7849", "capes": "B – Bom", "abdc": "-", "jcr": "-", "status": "Encontrado" },
+            { "nome": "JOURNAL OF INTERNATIONAL FINANCIAL MANAGEMENT AND ACCOUNTING (PRINT)", "issn": "0954-1314", "capes": "MB – Muito Bom", "abdc": "B", "jcr": "Q1", "status": "Encontrado" },
+            { "nome": "REVISTA PENSAMENTO CONTEMPORÂNEO EM ADMINISTRAÇÃO", "issn": "1982-2596", "capes": "R – Regular", "abdc": "-", "jcr": "-", "status": "Encontrado" },
+            { "nome": "RAM. REVISTA DE ADMINISTRAÇÃO MACKENZIE (ONLINE)", "issn": "1678-6971", "capes": "B – Bom", "abdc": "-", "jcr": "-", "status": "Encontrado" },
+            { "nome": "ORGANIZAÇÕES & SOCIEDADE (ONLINE)", "issn": "1984-9230", "capes": "B – Bom", "abdc": "-", "jcr": "-", "status": "Encontrado" },
+            { "nome": "REVISTA BRASILEIRA DE POLÍTICAS PÚBLICAS E INTERNACIONAIS", "issn": "2525-5584", "capes": "-", "abdc": "-", "jcr": "-", "status": "Não Encontrado" },
+            { "nome": "KYBERNETES", "issn": "0368-492X", "capes": "MB – Muito Bom", "abdc": "-", "jcr": "Q2", "status": "Encontrado" },
+            { "nome": "RAE (ON-LINE)", "issn": "2178-938X", "capes": "B – Bom", "abdc": "-", "jcr": "Q4", "status": "Encontrado" },
+            { "nome": "REVISTA BRASILEIRA DE MARKETING", "issn": "2177-5184", "capes": "F – Fraco", "abdc": "-", "jcr": "Q4", "status": "Encontrado" },
+            { "nome": "REVISTA CONTEMPORÂNEA DE CONTABILIDADE", "issn": "2175-8069", "capes": "R – Regular", "abdc": "-", "jcr": "-", "status": "Encontrado" },
+            { "nome": "REVISTA DE GESTÃO SOCIAL E AMBIENTAL (RGSA)", "issn": "1981-982X", "capes": "I – Insuficiente", "abdc": "-", "jcr": "-", "status": "Encontrado" },
+            { "nome": "JOURNAL OF ACCOUNTING, MANAGEMENT AND GOVERNANCE (JAMG)", "issn": "1984-3925", "capes": "R – Regular", "abdc": "-", "jcr": "Q4", "status": "Encontrado" },
+            { "nome": "COMPETÊNCIA - REVISTA DA EDUCAÇÃO SUPERIOR DO SENAC-RS", "issn": "2177-4986", "capes": "-", "abdc": "-", "jcr": "-", "status": "Não Encontrado" },
+            { "nome": "DEBATES EM EDUCAÇÃO", "issn": "2175-6600", "capes": "-", "abdc": "-", "jcr": "-", "status": "Não Encontrado" },
+            { "nome": "READ. REVISTA ELETRÔNICA DE ADMINISTRAÇÃO", "issn": "1413-2311", "capes": "B – Bom", "abdc": "-", "jcr": "-", "status": "Encontrado" },
+            { "nome": "JOURNAL OF APPLIED ACCOUNTING RESEARCH (ONLINE)", "issn": "0967-5426", "capes": "MB – Muito Bom", "abdc": "B", "jcr": "Q1", "status": "Encontrado" },
+            { "nome": "RESOURCES POLICY", "issn": "0301-4207", "capes": "MB – Muito Bom", "abdc": "B", "jcr": "-", "status": "Encontrado" },
+            { "nome": "THE JOURNAL OF BUSINESS & INDUSTRIAL MARKETING", "issn": "0885-8624", "capes": "MB – Muito Bom", "abdc": "A", "jcr": "Q2", "status": "Encontrado" },
+            { "nome": "INTERAÇÕES", "issn": "2184-3929", "capes": "-", "abdc": "-", "jcr": "-", "status": "Não Encontrado" },
+            { "nome": "ORGANIZAÇÕES EM CONTEXTO", "issn": "1982-8756", "capes": "F – Fraco", "abdc": "-", "jcr": "-", "status": "Encontrado" },
+            { "nome": "REVISTA BRASILEIRA DE PESQUISA EM TURISMO", "issn": "1982-6125", "capes": "B – Bom", "abdc": "-", "jcr": "Q4", "status": "Encontrado" },
+            { "nome": "ENERGY (OXFORD)", "issn": "0360-5442", "capes": "MB – Muito Bom", "abdc": "-", "jcr": "Q1", "status": "Encontrado" },
+            { "nome": "REVISTA DE ADMINISTRAÇÃO PÚBLICA", "issn": "1982-3134", "capes": "B – Bom", "abdc": "-", "jcr": "Q4", "status": "Encontrado" },
+            { "nome": "ADMINISTRAÇÃO: ENSINO E PESQUISA (RAEP)", "issn": "2358-0917", "capes": "R – Regular", "abdc": "-", "jcr": "Q4", "status": "Encontrado" },
+            { "nome": "JOURNAL OF MANAGEMENT AND SUSTAINABILITY", "issn": "1925-4733", "capes": "-", "abdc": "-", "jcr": "-", "status": "Não Encontrado" },
+            { "nome": "ARCHIVOS ANALÍTICOS DE POLÍTICAS EDUCATIVAS / EDUCATION POLICY ANALYSIS ARCHIVES", "issn": "1068-2341", "capes": "B – Bom", "abdc": "-", "jcr": "Q3", "status": "Encontrado" },
+            { "nome": "RAE. REVISTA DE ADMINISTRAÇÃO DE EMPRESAS", "issn": "0034-7590", "capes": "B – Bom", "abdc": "-", "jcr": "Q4", "status": "Encontrado" },
+            { "nome": "CADERNO PEDAGÓGICO (LAJEADO. ONLINE)", "issn": "1983-0882", "capes": "-", "abdc": "-", "jcr": "-", "status": "Não Encontrado" },
+            { "nome": "REVISTA BRASILEIRA DE GESTÃO E DESENVOLVIMENTO REGIONAL", "issn": "1809-239X", "capes": "R – Regular", "abdc": "-", "jcr": "-", "status": "Encontrado" },
+            { "nome": "SOCIEDADE, CONTABILIDADE E GESTÃO (UFRJ)", "issn": "1982-7342", "capes": "R – Regular", "abdc": "-", "jcr": "-", "status": "Encontrado" },
+            { "nome": "REVISTA DE TECNOLOGIA APLICADA", "issn": "2237-3713", "capes": "I – Insuficiente", "abdc": "-", "jcr": "-", "status": "Encontrado" },
+            { "nome": "BAR. BRAZILIAN ADMINISTRATION REVIEW", "issn": "1807-7692", "capes": "B – Bom", "abdc": "-", "jcr": "-", "status": "Encontrado" },
+            { "nome": "LEARNING ORGANIZATION", "issn": "0969-6474", "capes": "B – Bom", "abdc": "C", "jcr": "Q3", "status": "Encontrado" },
+            { "nome": "RESEARCH IN ECONOMICS (ONLINE)", "issn": "1090-9451", "capes": "B – Bom", "abdc": "B", "jcr": "Q3", "status": "Encontrado" },
+            { "nome": "JOURNAL FOR NATURE CONSERVATION (PRINT)", "issn": "1617-1381", "capes": "B – Bom", "abdc": "-", "jcr": "Q2", "status": "Encontrado" },
+            { "nome": "REDES REVISTA DO DESENVOLVIMENTO REGIONAL", "issn": "1982-6745", "capes": "-", "abdc": "-", "jcr": "-", "status": "Não Encontrado" },
+            { "nome": "ADMINISTRAÇÃO PÚBLICA E GESTÃO SOCIAL", "issn": "2175-5787", "capes": "R – Regular", "abdc": "-", "jcr": "Q4", "status": "Encontrado" },
+            { "nome": "JOURNAL OF MARKETING THEORY AND PRACTICE", "issn": "1069-6679", "capes": "MB – Muito Bom", "abdc": "B", "jcr": "Q1", "status": "Encontrado" },
+            { "nome": "BBR. BRAZILIAN BUSINESS REVIEW", "issn": "1808-2386", "capes": "B – Bom", "abdc": "-", "jcr": "-", "status": "Encontrado" },
+            { "nome": "INTERNATIONAL JOURNAL OF HUMAN CAPITAL AND INFORMATION TECHNOLOGY PROFESSIONALS", "issn": "1947-3478", "capes": "R – Regular", "abdc": "-", "jcr": "Q3", "status": "Encontrado" },
+            { "nome": "CADERNOS EBAPE. BR", "issn": "1679-3951", "capes": "B – Bom", "abdc": "-", "jcr": "-", "status": "Encontrado" },
+            { "nome": "JOURNAL OF ECONOMIC STUDIES (BRADFORD)", "issn": "0144-3585", "capes": "MB – Muito Bom", "abdc": "B", "jcr": "Q2", "status": "Encontrado" },
+            { "nome": "JOURNAL OF MANUFACTURING SCIENCE AND TECHNOLOGY", "issn": "1755-5817", "capes": "MB – Muito Bom", "abdc": "-", "jcr": "Q1", "status": "Encontrado" },
+            { "nome": "REVISTA COCAR (ONLINE)", "issn": "2237-0315", "capes": "-", "abdc": "-", "jcr": "-", "status": "Não Encontrado" },
+            { "nome": "REVISTA BRASILEIRA DE CIÊNCIAS AMBIENTAIS (IMPRESSA)", "issn": "2176-9478", "capes": "F – Fraco", "abdc": "-", "jcr": "Q4", "status": "Encontrado" },
+            { "nome": "ENVIRONMENT, DEVELOPMENT AND SUSTAINABILITY", "issn": "1387-585X", "capes": "MB – Muito Bom", "abdc": "-", "jcr": "Q2", "status": "Encontrado" },
+            { "nome": "INFORMATION RESOURCES MANAGEMENT JOURNAL", "issn": "1040-1628", "capes": "B – Bom", "abdc": "C", "jcr": "Q3", "status": "Encontrado" },
+            { "nome": "JOURNAL OF THE KNOWLEDGE ECONOMY (ONLINE)", "issn": "1868-7873", "capes": "B – Bom", "abdc": "C", "jcr": "-", "status": "Encontrado" },
+            { "nome": "GESTÃO & REGIONALIDADE (ONLINE)", "issn": "2176-5308", "capes": "F – Fraco", "abdc": "-", "jcr": "-", "status": "Encontrado" }
+        ];
+
+        // Referências aos elementos do DOM
+        const tableBody = document.getElementById('tableBody');
+        const searchInput = document.getElementById('searchInput');
+        const statusFilter = document.getElementById('statusFilter');
+        
+        const kpiTotal = document.getElementById('kpi-total');
+        const kpiSucesso = document.getElementById('kpi-sucesso');
+        const kpiFalha = document.getElementById('kpi-falha');
+
+        // Configuração inicial do Gráfico CAPES
+        const ctxCapes = document.getElementById('capesChart').getContext('2d');
+        let myCapesChart = new Chart(ctxCapes, {
+            type: 'bar',
+            data: {
+                labels: ['MB - Muito Bom', 'B - Bom', 'R - Regular', 'F - Fraco', 'I - Insuficiente'],
+                datasets: [{
+                    label: 'Qtd. de Periódicos',
+                    data: [0, 0, 0, 0, 0],
+                    backgroundColor: '#3b82f6',
+                    borderRadius: 4
+                }]
+            },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { legend: { display: false } } 
+            }
+        });
+
+        // Configuração inicial do Gráfico de Status (Rosca)
+        const ctxStatus = document.getElementById('statusChart').getContext('2d');
+        let myStatusChart = new Chart(ctxStatus, {
+            type: 'doughnut',
+            data: {
+                labels: ['Encontrados', 'Não Encontrados'],
+                datasets: [{
+                    data: [0, 0],
+                    backgroundColor: ['#10b981', '#ef4444'],
+                    borderWidth: 0
+                }]
+            },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                cutout: '70%',
+                plugins: { legend: { position: 'bottom' } }
+            }
+        });
+
+        // Função Principal: Atualiza Tabela, KPIs e Gráficos
+        function updateDashboard(items) {
+            // 1. Renderiza as linhas da tabela
+            tableBody.innerHTML = '';
+            items.forEach(item => {
+                const statusBadge = item.status === 'Encontrado' 
+                    ? '<span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">Extraído</span>'
+                    : '<span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium border border-red-200">Revisar ISSN</span>';
+                
+                const tr = document.createElement('tr');
+                tr.className = 'border-b table-row-hover';
+                
+                // Tratamento para evitar que valores vazios quebrem a tabela
+                const capesText = item.capes || '-';
+                const abdcText = item.abdc || '-';
+                const jcrText = item.jcr || '-';
+                
+                tr.innerHTML = `
+                    <td class="p-4 font-medium">${item.nome}</td>
+                    <td class="p-4 text-gray-500">${item.issn}</td>
+                    <td class="p-4 font-semibold ${capesText.includes('MB') ? 'text-blue-600' : ''}">${capesText}</td>
+                    <td class="p-4">${abdcText}</td>
+                    <td class="p-4">${jcrText}</td>
+                    <td class="p-4">${statusBadge}</td>
+                `;
+                tableBody.appendChild(tr);
+            });
+
+            // 2. Variáveis para contagem dos KPIs e Gráficos
+            let countEncontrados = 0;
+            let countFalhas = 0;
+            let countCapes = { 'MB': 0, 'B': 0, 'R': 0, 'F': 0, 'I': 0 };
+
+            // 3. Processa os dados visíveis
+            items.forEach(item => {
+                if (item.status === 'Encontrado') {
+                    countEncontrados++;
+                } else {
+                    countFalhas++;
+                }
+
+                if (item.capes) {
+                    if (item.capes.includes('MB')) countCapes['MB']++;
+                    else if (item.capes.includes('B')) countCapes['B']++;
+                    else if (item.capes.includes('R')) countCapes['R']++;
+                    else if (item.capes.includes('F')) countCapes['F']++;
+                    else if (item.capes.includes('I')) countCapes['I']++;
+                }
+            });
+
+            // 4. Atualiza os Textos dos KPIs
+            kpiTotal.innerText = items.length;
+            kpiSucesso.innerText = countEncontrados;
+            kpiFalha.innerText = countFalhas;
+
+            // 5. Atualiza o Gráfico de Status
+            myStatusChart.data.datasets[0].data = [countEncontrados, countFalhas];
+            myStatusChart.update();
+
+            // 6. Atualiza o Gráfico de Barras CAPES
+            myCapesChart.data.datasets[0].data = [
+                countCapes['MB'],
+                countCapes['B'],
+                countCapes['R'],
+                countCapes['F'],
+                countCapes['I']
+            ];
+            myCapesChart.update();
+        }
+
+        // Função ativada quando o usuário digita na busca ou muda o filtro dropdown
+        function filterData() {
+            const term = searchInput.value.toLowerCase();
+            const status = statusFilter.value;
+            
+            const filtered = data.filter(item => {
+                // Filtra por texto (Nome ou ISSN)
+                const matchText = (item.nome && item.nome.toLowerCase().includes(term)) || 
+                                  (item.issn && item.issn.toLowerCase().includes(term));
+                                  
+                // Filtra pelo Status do dropdown
+                const matchStatus = status === 'all' 
+                    ? true 
+                    : (status === 'encontrado' && item.status === 'Encontrado') || 
+                      (status === 'nao_encontrado' && item.status === 'Não Encontrado');
+                      
+                return matchText && matchStatus;
+            });
+            
+            // Recarrega o painel inteiro apenas com os dados filtrados
+            updateDashboard(filtered);
+        }
+
+        // Adiciona os "escutadores" de eventos nos campos de input
+        searchInput.addEventListener('input', filterData);
+        statusFilter.addEventListener('change', filterData);
+        
+        // Chamada inicial para carregar tudo assim que a página abre
+        updateDashboard(data);
+    </script>
+</body>
+</html>
